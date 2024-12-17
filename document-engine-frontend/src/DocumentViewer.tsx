@@ -6,12 +6,12 @@ type DocumentView = {
   jwt: string;
 };
 
+
 export function DocumentViewer() {
   const { documentId } = useParams<{ documentId: string }>();
   const [viewerConfig, setViewerConfig] = useState<DocumentView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const instanceRef = useRef<any>(null); // Store the PSPDFKit instance
 
   useEffect(() => {
     const loadDocument = async () => {
@@ -38,43 +38,37 @@ export function DocumentViewer() {
   }, [documentId]);
 
   useEffect(() => {
-    if (viewerConfig && containerRef.current && window.PSPDFKit) {
-      console.log('Initializing viewer with config:', viewerConfig);
-      
-      window.PSPDFKit.load({
-        serverUrl: 'http://localhost:5000/',
-        container: containerRef.current,
-        documentId: viewerConfig.documentId,
-        authPayload: { jwt: viewerConfig.jwt },
-        instant: true
-      })
-      .then((instance) => {
-        instanceRef.current = instance;
-      })
-      .catch((err: Error) => {
-        console.error('PSPDFKit error:', err);
-        setError(`Failed to load PDF viewer: ${err.message}`);
-      });
-
-      // Cleanup function
-      return () => {
-        if (instanceRef.current) {
-          instanceRef.current.dispose();
-          instanceRef.current = null;
+    const initViewer = async () => {
+      if (viewerConfig && containerRef.current && window.PSPDFKit) {
+        // First, unload any existing instance
+        if (containerRef.current) {
+          await window.PSPDFKit.unload(containerRef.current);
         }
-      };
-    }
-  }, [viewerConfig]);
 
-  // Additional cleanup when component unmounts
-  useEffect(() => {
-    return () => {
-      if (instanceRef.current) {
-        instanceRef.current.dispose();
-        instanceRef.current = null;
+        try {
+          await window.PSPDFKit.load({
+            serverUrl: 'http://localhost:5000/',
+            container: containerRef.current,
+            documentId: viewerConfig.documentId,
+            authPayload: { jwt: viewerConfig.jwt },
+            instant: true
+          });
+        } catch (err) {
+          console.error('PSPDFKit error:', err);
+          setError(`Failed to load PDF viewer: ${err}`);
+        }
       }
     };
-  }, []);
+
+    initViewer();
+
+    // Cleanup when component unmounts or viewerConfig changes
+    return () => {
+      if (containerRef.current) {
+        window.PSPDFKit.unload(containerRef.current);
+      }
+    };
+  }, [viewerConfig]);
 
   if (error) return <div className="error">Error: {error}</div>;
   if (!viewerConfig) return <div>Loading...</div>;

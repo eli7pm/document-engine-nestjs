@@ -8,6 +8,7 @@ interface Window {
         authPayload: { jwt: string };
         instant: boolean;
       }) => Promise<any>;
+      unload: (container: HTMLElement) => Promise<void>;
     }
   }
 
